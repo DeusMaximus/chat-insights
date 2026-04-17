@@ -15,22 +15,24 @@ Generate a usage insights report from recent claude.ai conversations, similar in
 This skill uses the `recent_chats` and `conversation_search` tools, which return conversation snippets and summaries — not full transcripts. This means:
 
 - Pattern detection is directional, not exhaustive
-- Hallucination counts and friction examples are likely undercounts
-- Coverage is limited to conversations the tools can surface (outside projects only if the user is outside a project)
+- Hallucination counts and friction examples are necessarily lower bounds
+- Only conversations in the current scope are visible: from outside a Project, conversations inside Projects aren't searchable, and vice versa
 
 Be explicit about these limitations in the report or as a note following it. Do not present findings with more confidence than the data warrants.
+
+If fewer than ~10 usable conversations are retrieved, tell the user the dataset is too thin rather than producing a low-signal report.
 
 ## Data collection strategy
 
 ### Step 1 — Pull recent conversations
 
-Pull two batches using `recent_chats` (n=20 each), paginating with `before` set to the earliest `updated_at` from the first batch. This gives up to 40 conversations as the working dataset.
+Pull two batches using `recent_chats` (n=20 each), paginating with `before` set to the earliest `updated_at` from the first batch. This gives up to 40 conversations as the working dataset — the actual time span depends on how frequently the user chats.
 
-If the user specifies a timeframe ("last week", "this month"), use `before`/`after` parameters accordingly. Default is the most recent ~4–7 days.
+If the user specifies a timeframe ("last week", "this month"), use `before`/`after` parameters accordingly. Otherwise, just take whatever the most recent ~40 conversations cover.
 
 ### Step 2 — Targeted gap-filling (optional)
 
-If obvious topic areas appear underrepresented based on available memory context or early patterns in the data, use `conversation_search` with 1–2 targeted queries to pull relevant conversations from those areas.
+If memory entries reference topics that don't appear in the retrieved batch, or if the batch is heavily skewed toward one area, use `conversation_search` with 1–2 targeted queries to pull relevant conversations from the gaps.
 
 Do not run more than 3 total `conversation_search` calls. The point is to fill gaps, not to exhaustively catalogue everything.
 
@@ -62,7 +64,7 @@ Split into two columns:
 Be direct. These sections are most useful when specific and honest, not hedged.
 
 ### Topic breakdown
-Categorise sessions into ~6–8 topic areas with rough counts. Use badges. Derive the categories from the actual conversation mix — do not force sessions into predetermined categories. "Misc" is fine for outliers.
+Categorise sessions into ~6–8 topic areas with rough counts, if the dataset supports it — collapse to fewer if any category would have <3 sessions. Use badges. Derive the categories from the actual conversation mix; do not force sessions into predetermined categories. "Misc" is fine for outliers.
 
 Assign badge colours to encode meaning rather than sequence. Suggested mappings as a starting point: blue for technical/work topics, teal for infrastructure/homelab, purple for hardware/purchasing, coral for security or scam detection, amber for AI/meta topics. Adjust freely based on what the user actually talks about.
 
@@ -71,14 +73,14 @@ Assign badge colours to encode meaning rather than sequence. Suggested mappings 
 
 ## Visual output
 
-Use `visualize:read_me` (modules: `["data_viz", "chart"]`) then render with `visualize:show_widget`.
+Requires the `visualize` tool. Call `visualize:read_me` (modules: `["data_viz", "chart"]`) first, then render with `visualize:show_widget`.
 
 ### Metric cards (top of report)
 Display 4 cards in a grid. Default suggestions:
 - Conversations (count)
 - Non-coding topics (% of sessions)
 - MCP tools used (count, list key ones as subtitle)
-- Hallucinations caught (count, "by you" as subtitle)
+- Hallucinations caught (count, "by you — lower bound" as subtitle, since snippets undercount)
 
 Adjust these if the data suggests different metrics are more meaningful for this particular user's conversation mix.
 
